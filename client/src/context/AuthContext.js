@@ -3,6 +3,10 @@ import axios from 'axios';
 
 const AuthContext = createContext();
 
+// Configure axios base URL for production
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+axios.defaults.baseURL = API_BASE_URL;
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

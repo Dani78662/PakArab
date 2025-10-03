@@ -9,7 +9,12 @@ dotenv.config({ path: './config.env' });
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://your-frontend-render-url.onrender.com', 'http://localhost:3000']
+    : 'http://localhost:3000',
+  credentials: true
+}));
 app.use(express.json());
 
 // Routes
@@ -18,7 +23,16 @@ app.use('/api/data', require('./routes/data'));
 
 // Basic route
 app.get('/', (req, res) => {
-  res.json({ message: 'MERN Stack Server is running!' });
+  res.json({ 
+    message: 'MERN Stack Server is running!',
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Health check route
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
 // Connect to MongoDB
