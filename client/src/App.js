@@ -6,6 +6,7 @@ import LandingPage from './pages/LandingPage';
 import AdminDashboard from './pages/AdminDashboard';
 import RamzinDashboard from './pages/RamzinDashboard';
 import EditorDashboard from './pages/EditorDashboard';
+import Service from './pages/Service';
 import BillDetails from './pages/BillDetails';
 
 function AppRoutes() {
@@ -35,6 +36,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="editor">
             <EditorDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/service" 
+        element={
+          <ProtectedRoute requiredRole="editor2">
+            <Service />
           </ProtectedRoute>
         } 
       />

@@ -204,4 +204,134 @@ router.get('/:id/image', async (req, res) => {
   }
 });
 
+// Get all customers for tax information (Admin only)
+router.get('/admin/customers', [auth, authorize('admin')], async (req, res) => {
+  try {
+    const customers = await Data.aggregate([
+      {
+        $group: {
+          _id: '$customerId',
+          customerName: { $first: '$nameAndAddress' },
+          totalCost: { $sum: { $ifNull: ['$totalCost', 0] } },
+          totalFPA: { $sum: { $ifNull: ['$fpa', 0] } },
+          totalGST: { $sum: { $ifNull: ['$gst', 0] } },
+          totalRetailTax: { $sum: { $ifNull: ['$retailTax', 0] } },
+          totalIncomeTax: { $sum: { $ifNull: ['$incomeTax', 0] } },
+          billCount: { $sum: 1 },
+          latestBillDate: { $max: '$createdAt' },
+          bills: { $push: '$$ROOT' }
+        }
+      },
+      {
+        $sort: { customerName: 1 }
+      }
+    ]);
+
+    res.json({
+      message: 'Customers retrieved successfully',
+      data: customers
+    });
+  } catch (error) {
+    console.error('Get customers error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Search customers for tax information (Admin only)
+router.get('/admin/customers/search', [auth, authorize('admin')], async (req, res) => {
+  try {
+    const { query } = req.query;
+
+    if (!query) {
+      return res.status(400).json({ message: 'Search query is required' });
+    }
+
+    const searchRegex = new RegExp(query, 'i');
+    const customers = await Data.aggregate([
+      {
+        $match: {
+          $or: [
+            { customerId: searchRegex },
+            { nameAndAddress: searchRegex }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: '$customerId',
+          customerName: { $first: '$nameAndAddress' },
+          totalCost: { $sum: { $ifNull: ['$totalCost', 0] } },
+          totalFPA: { $sum: { $ifNull: ['$fpa', 0] } },
+          totalGST: { $sum: { $ifNull: ['$gst', 0] } },
+          totalRetailTax: { $sum: { $ifNull: ['$retailTax', 0] } },
+          totalIncomeTax: { $sum: { $ifNull: ['$incomeTax', 0] } },
+          billCount: { $sum: 1 },
+          latestBillDate: { $max: '$createdAt' },
+          bills: { $push: '$$ROOT' }
+        }
+      },
+      {
+        $sort: { customerName: 1 }
+      }
+    ]);
+
+    res.json({
+      message: 'Search completed successfully',
+      data: customers,
+      query
+    });
+  } catch (error) {
+    console.error('Search customers error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get detailed tax information for a specific customer (Admin only)
+router.get('/admin/customers/:customerId/tax-details', [auth, authorize('admin')], async (req, res) => {
+  try {
+    const { customerId } = req.params;
+
+    const customerBills = await Data.find({ customerId })
+      .populate('createdBy', 'username role')
+      .sort({ billMonth: 1, createdAt: -1 }); // Sort by bill month first, then by creation date
+
+    console.log(`Found ${customerBills.length} bills for customer ${customerId}`);
+    console.log('Sample bill data:', customerBills[0]);
+
+    if (customerBills.length === 0) {
+      return res.status(404).json({ message: 'No bills found for this customer' });
+    }
+
+    // Calculate totals from actual database values
+    const totals = customerBills.reduce((acc, bill) => ({
+      totalCost: acc.totalCost + (parseFloat(bill.totalCost) || 0),
+      totalFPA: acc.totalFPA + (parseFloat(bill.fpa) || 0),
+      totalGST: acc.totalGST + (parseFloat(bill.gst) || 0),
+      totalRetailTax: acc.totalRetailTax + (parseFloat(bill.retailTax) || 0),
+      totalIncomeTax: acc.totalIncomeTax + (parseFloat(bill.incomeTax) || 0),
+      billCount: acc.billCount + 1
+    }), {
+      totalCost: 0,
+      totalFPA: 0,
+      totalGST: 0,
+      totalRetailTax: 0,
+      totalIncomeTax: 0,
+      billCount: 0
+    });
+
+    res.json({
+      message: 'Customer tax details retrieved successfully',
+      data: {
+        customerId,
+        customerName: customerBills[0].nameAndAddress,
+        bills: customerBills,
+        totals
+      }
+    });
+  } catch (error) {
+    console.error('Get customer tax details error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

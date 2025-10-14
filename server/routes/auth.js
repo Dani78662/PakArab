@@ -10,7 +10,7 @@ const router = express.Router();
 router.post('/login', [
   body('username').notEmpty().withMessage('Username is required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('role').isIn(['admin', 'ramzin', 'editor']).withMessage('Invalid role')
+  body('role').isIn(['admin', 'ramzin', 'editor', 'editor2']).withMessage('Invalid role')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -66,30 +66,34 @@ router.get('/me', auth, async (req, res) => {
   });
 });
 
-// Create default users (for development)
+// Create or ensure default users exist (idempotent)
 router.post('/create-default-users', async (req, res) => {
   try {
-    // Check if users already exist
-    const existingUsers = await User.find();
-    if (existingUsers.length > 0) {
-      return res.json({ message: 'Default users already exist' });
-    }
-
-    // Create default users
     const defaultUsers = [
       { username: 'admin', password: 'admin123', role: 'admin' },
       { username: 'ramzin', password: 'ramzin123', role: 'ramzin' },
-      { username: 'editor', password: 'editor123', role: 'editor' }
+      { username: 'editor', password: 'editor123', role: 'editor' },
+      { username: 'editor2', password: 'editor2123', role: 'editor2' }
     ];
 
-    const users = await User.insertMany(defaultUsers);
-    
-    res.json({ 
-      message: 'Default users created successfully',
-      users: users.map(user => ({
-        username: user.username,
-        role: user.role
-      }))
+    const created = [];
+    const existing = [];
+
+    for (const def of defaultUsers) {
+      const found = await User.findOne({ username: def.username, role: def.role });
+      if (!found) {
+        const newUser = new User(def);
+        await newUser.save();
+        created.push({ username: newUser.username, role: newUser.role });
+      } else {
+        existing.push({ username: found.username, role: found.role });
+      }
+    }
+
+    res.json({
+      message: 'Default users ensured',
+      created,
+      existing
     });
   } catch (error) {
     console.error('Create default users error:', error);

@@ -2,9 +2,10 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 
 // Load environment variables
-dotenv.config({ path: './config.env' });
+dotenv.config({ path: path.join(__dirname, 'config.env') });
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/data', require('./routes/data'));
+app.use('/api/data/service', require('./routes/service'));
 
 // Basic route
 app.get('/', (req, res) => {
@@ -36,9 +38,10 @@ app.get('/health', (req, res) => {
 });
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/mern_project')
+const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/mern_project';
+mongoose.connect(mongoUri)
   .then(() => {
-    console.log('Connected to MongoDB');
+    console.log('Connected to MongoDB:', mongoUri);
   })
   .catch((error) => {
     console.error('MongoDB connection error:', error);
