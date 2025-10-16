@@ -173,42 +173,41 @@ const CaretakerChargesForm = () => {
         return undefined;
     };
 
-    const lookupById = async () => {
-		const id = (data.mongoId || '').trim();
-		if (!id) return;
+    const lookupByBillId = async () => {
+		const billId = (data.billId || '').trim();
+		if (!billId) return;
 		try {
             setLookupLoading(true);
             setError('');
             setSuccess('');
-            const res = await axios.get(`/api/data/salesdata/by-id/${encodeURIComponent(id)}`);
-			const raw = res.data?.data || {};
-			const d = raw || {};
+            const res = await axios.get(`/api/data/clientdata/lookup-by-billid/${encodeURIComponent(billId)}`);
+			const record = res.data?.data || {};
 			setData(prev => ({
 				...prev,
-				block: pick(d, ['block','Block','BLOCK']) || prev.block,
-				customerName: pick(d, ['CustName','customerName','CustomerName','NAME','Name','Customer']) || prev.customerName,
-				size: pick(d, ['Marlas','size','Size','Type']) || prev.size,
-				billId: pick(d, ['SaleNo','billId','BillId','BillID']) || prev.billId,
-				houseNo: pick(d, ['AutoUnitNo','houseNo','HouseNo','House','House_No']) || prev.houseNo,
-				billingQuarter: pick(d, ['billingQuarter','BillingQuarter','Quarter']) || prev.billingQuarter,
-				issueDate: pick(d, ['issueDate','IssueDate','DateOfIssue']) || prev.issueDate,
-				dueDate: pick(d, ['dueDate','DueDate']) || prev.dueDate,
-				ctcCharges: pick(d, ['Value','ctcCharges','CTC','CurrentQuarterCharges']) || prev.ctcCharges,
-				outstanding: pick(d, ['Balance','outstanding','Outstanding','Dues']) || prev.outstanding,
-				withinDue: pick(d, ['ReceiveAble','withinDue','PayableWithinDueDate']) || prev.withinDue,
-				surcharge: pick(d, ['surcharge','LatePaymentSurcharge','LPSurcharge']) || prev.surcharge,
-				afterDue: pick(d, ['ReceiveAble','afterDue','GrossAfterDue','PayableAfterDueDate']) || prev.afterDue,
-				payableWithin: pick(d, ['ReceiveAble','payableWithin','PayableWithin']) || prev.payableWithin,
-				payableAfter: pick(d, ['ReceiveAble','payableAfter','PayableAfter']) || prev.payableAfter,
+				mongoId: record._id || prev.mongoId,
+				block: record.block || prev.block,
+				customerName: record.customerName || prev.customerName,
+				size: record.size || prev.size,
+				houseNo: record.houseNo || prev.houseNo,
+				billingQuarter: record.billingQuarter || prev.billingQuarter,
+				issueDate: record.issueDate || prev.issueDate,
+				dueDate: record.dueDate || prev.dueDate,
+				ctcCharges: record.ctcCharges || prev.ctcCharges,
+				outstanding: record.outstanding || prev.outstanding,
+				withinDue: record.withinDue || prev.withinDue,
+				surcharge: record.surcharge || prev.surcharge,
+				afterDue: record.afterDue || prev.afterDue,
+				payableWithin: record.payableWithin || prev.payableWithin,
+				payableAfter: record.payableAfter || prev.payableAfter,
 			}));
-            setSuccess('Details autofilled from selected record.');
+            setSuccess('Details autofilled from existing record.');
 		} catch (e) {
             if (e.response?.status === 404) {
-                setError('No record found for this Mongo ID.');
+                setError('No record found for this Bill ID.');
             } else if (e.response?.status === 400) {
-                setError('Invalid Mongo ID format.');
+                setError('Invalid Bill ID format.');
             } else {
-                setError(e.response?.data?.message || 'Failed to lookup Mongo ID');
+                setError(e.response?.data?.message || 'Failed to lookup Bill ID');
             }
 		}
         finally {
@@ -236,9 +235,12 @@ const CaretakerChargesForm = () => {
                 formType: 'caretaker_charges'
             };
 
+            // If mongoId exists, this is an update; otherwise it's a new record
+            const isUpdate = data.mongoId && data.mongoId.trim() !== '';
+            
             await axios.post('/api/data/clientdata/caretaker-charges', submitData);
             
-            setSuccess('Caretaker charges data saved successfully!');
+            setSuccess(isUpdate ? 'Caretaker charges data updated successfully!' : 'Caretaker charges data saved successfully!');
             // Reset form after successful submission
             setData({
                 mongoId: '', block: '', customerName: '', size: '', billId: '', houseNo: '',
@@ -275,18 +277,18 @@ const CaretakerChargesForm = () => {
 					<div className="text-xs text-gray-500 mt-2">Generated: {now.toLocaleString()}</div>
 				</div>
                 <div className="no-print px-4 pt-4">
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-xl">
-                        <h3 className="text-sm font-semibold text-gray-900 mb-2">Autofill by Mongo Document ID</h3>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-xl">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-2">Autofill by Bill ID</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-end">
                             <div className="md:col-span-2">
-                                <label className="block text-xs text-gray-600 mb-1">Enter Mongo ID (_id)</label>
+                                <label className="block text-xs text-gray-600 mb-1">Enter Bill ID to autofill existing data</label>
                                 <input
-                                    name="mongoId"
-                                    value={data.mongoId}
+                                    name="billId"
+                                    value={data.billId}
                                     onChange={(e) => { setSuccess(''); setError(''); handleChange(e); }}
-                                    onBlur={lookupById}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); lookupById(); } }}
-                                    placeholder="e.g., 68ef8ec..."
+                                    onBlur={lookupByBillId}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); lookupByBillId(); } }}
+                                    placeholder="e.g., BILL-001, 12345..."
                                     className="w-full border border-gray-300 rounded px-2 py-1"
                                     disabled={lookupLoading}
                                 />
@@ -294,9 +296,9 @@ const CaretakerChargesForm = () => {
                             <div>
                                 <button
                                     type="button"
-                                    onClick={lookupById}
-                                    disabled={lookupLoading || !data.mongoId?.trim()}
-                                    className="w-full px-3 py-1.5 rounded bg-yellow-600 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                    onClick={lookupByBillId}
+                                    disabled={lookupLoading || !data.billId?.trim()}
+                                    className="w-full px-3 py-1.5 rounded bg-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                                 >
                                     {lookupLoading ? (
                                         <>

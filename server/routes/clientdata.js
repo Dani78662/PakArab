@@ -80,30 +80,60 @@ router.post('/caretaker-charges', [auth, authorize('care_service')], async (req,
       });
     }
 
-    // Create new caretaken detail record
-    const caretakenDetail = new CaretakenDetail({
-      mongoId,
-      block,
-      customerName,
-      size,
-      billId,
-      houseNo,
-      billingQuarter,
-      issueDate,
-      dueDate,
-      ctcCharges: parseFloat(ctcCharges) || 0,
-      outstanding: parseFloat(outstanding) || 0,
-      withinDue: parseFloat(withinDue) || 0,
-      surcharge: parseFloat(surcharge) || 0,
-      afterDue: parseFloat(afterDue) || 0,
-      payableWithin: parseFloat(payableWithin) || 0,
-      payableAfter: parseFloat(payableAfter) || 0,
-      submittedAt: submittedAt || new Date(),
-      formType: formType || 'caretaken_charges',
-      submittedBy: req.user._id
-    });
+    let savedDetails;
 
-    const savedDetails = await caretakenDetail.save();
+    // Check if this is an update (mongoId provided) or new record
+    if (mongoId && mongoId.trim() !== '') {
+      // Update existing record
+      savedDetails = await CaretakenDetail.findByIdAndUpdate(
+        mongoId,
+        {
+          block,
+          customerName,
+          size,
+          billId,
+          houseNo,
+          billingQuarter,
+          issueDate,
+          dueDate,
+          ctcCharges: parseFloat(ctcCharges) || 0,
+          outstanding: parseFloat(outstanding) || 0,
+          withinDue: parseFloat(withinDue) || 0,
+          surcharge: parseFloat(surcharge) || 0,
+          afterDue: parseFloat(afterDue) || 0,
+          payableWithin: parseFloat(payableWithin) || 0,
+          payableAfter: parseFloat(payableAfter) || 0,
+          submittedAt: submittedAt || new Date(),
+          formType: formType || 'caretaken_charges'
+        },
+        { new: true }
+      );
+    } else {
+      // Create new record
+      const caretakenDetail = new CaretakenDetail({
+        mongoId,
+        block,
+        customerName,
+        size,
+        billId,
+        houseNo,
+        billingQuarter,
+        issueDate,
+        dueDate,
+        ctcCharges: parseFloat(ctcCharges) || 0,
+        outstanding: parseFloat(outstanding) || 0,
+        withinDue: parseFloat(withinDue) || 0,
+        surcharge: parseFloat(surcharge) || 0,
+        afterDue: parseFloat(afterDue) || 0,
+        payableWithin: parseFloat(payableWithin) || 0,
+        payableAfter: parseFloat(payableAfter) || 0,
+        submittedAt: submittedAt || new Date(),
+        formType: formType || 'caretaken_charges',
+        submittedBy: req.user._id
+      });
+
+      savedDetails = await caretakenDetail.save();
+    }
 
     res.json({
       message: 'Caretaker charges data saved successfully',
@@ -120,6 +150,31 @@ router.post('/caretaker-charges', [auth, authorize('care_service')], async (req,
       message: 'Server error while saving caretaker charges data',
       error: error.message 
     });
+  }
+});
+
+// Lookup caretaken details by billId for autofill
+router.get('/lookup-by-billid/:billId', async (req, res) => {
+  try {
+    const { billId } = req.params;
+    if (!billId) {
+      return res.status(400).json({ message: 'Bill ID is required' });
+    }
+
+    // Search for existing record by billId
+    const existingRecord = await CaretakenDetail.findOne({ billId }).lean();
+    
+    if (existingRecord) {
+      res.json({
+        message: 'Record found',
+        data: existingRecord
+      });
+    } else {
+      res.status(404).json({ message: 'No record found for this Bill ID' });
+    }
+  } catch (error) {
+    console.error('Lookup by billId error:', error);
+    res.status(500).json({ message: 'Server error while looking up Bill ID' });
   }
 });
 
