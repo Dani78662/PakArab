@@ -51,13 +51,11 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('Frontend login attempt:', { username, role, passwordLength: password.length });
       
-      // Use special endpoint for care_service role
-      const endpoint = role === 'care_service' ? '/api/auth/care-service-login' : '/api/auth/login';
-      const payload = role === 'care_service' 
-        ? { username, password }
-        : { username, password, role };
-        
-      const response = await axios.post(endpoint, payload);
+      const response = await axios.post('/api/auth/login', {
+        username,
+        password,
+        role
+      });
 
       const { token: newToken, user: userData } = response.data;
       

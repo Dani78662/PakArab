@@ -6,11 +6,10 @@ const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Login route
+// Simplified login route - no role validation
 router.post('/login', [
   body('username').notEmpty().withMessage('Username is required'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('role').notEmpty().withMessage('Role is required')
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
 ], async (req, res) => {
   try {
     console.log('Login attempt:', { username: req.body.username, role: req.body.role });
@@ -23,8 +22,8 @@ router.post('/login', [
 
     const { username, password, role } = req.body;
 
-    // Find user by username and role
-    const user = await User.findOne({ username, role });
+    // Find user by username (ignore role for now)
+    const user = await User.findOne({ username });
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
@@ -54,57 +53,6 @@ router.post('/login', [
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Care service login route (without role validation)
-router.post('/care-service-login', [
-  body('username').notEmpty().withMessage('Username is required'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
-], async (req, res) => {
-  try {
-    console.log('Care service login attempt:', { username: req.body.username });
-    
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      console.log('Validation errors:', errors.array());
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { username, password } = req.body;
-
-    // Find user by username and care_service role
-    const user = await User.findOne({ username, role: 'care_service' });
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    // Check password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    // Create JWT token
-    const payload = {
-      userId: user._id,
-      username: user.username,
-      role: user.role
-    };
-
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
-
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        role: user.role
-      }
-    });
-  } catch (error) {
-    console.error('Care service login error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
