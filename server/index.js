@@ -2,16 +2,17 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 
 // Load environment variables
-dotenv.config({ path: './config.env' });
+dotenv.config({ path: path.join(__dirname, 'config.env') });
 
 const app = express();
 
 // Middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-frontend-render-url.onrender.com', 'http://localhost:3000']
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://pakarab.onrender.com', 'https://pakarab-1.onrender.com', 'http://localhost:3000']
     : 'http://localhost:3000',
   credentials: true
 }));
@@ -20,6 +21,9 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/data', require('./routes/data'));
+app.use('/api/data/service', require('./routes/service'));
+app.use('/api/data/salesdata', require('./routes/salesdata'));
+app.use('/api/data/clientdata', require('./routes/clientdata'));
 
 // Basic route
 app.get('/', (req, res) => {
@@ -36,9 +40,10 @@ app.get('/health', (req, res) => {
 });
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/mern_project')
+const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/mern_project';
+mongoose.connect(mongoUri)
   .then(() => {
-    console.log('Connected to MongoDB');
+    console.log('Connected to MongoDB:', mongoUri);
   })
   .catch((error) => {
     console.error('MongoDB connection error:', error);

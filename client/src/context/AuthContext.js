@@ -4,7 +4,7 @@ import axios from 'axios';
 const AuthContext = createContext();
 
 // Configure axios base URL for production
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://pakarab.onrender.com';
 axios.defaults.baseURL = API_BASE_URL;
 
 export const useAuth = () => {
@@ -49,6 +49,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password, role) => {
     try {
+      console.log('Frontend login attempt:', { username, role, passwordLength: password.length });
       const response = await axios.post('/api/auth/login', {
         username,
         password,
@@ -63,9 +64,15 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true };
     } catch (error) {
+      console.error('Login error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
       return { 
         success: false, 
-        message: error.response?.data?.message || 'Login failed' 
+        message: error.response?.data?.message || error.response?.data?.errors?.[0]?.msg || 'Login failed' 
       };
     }
   };

@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const Data = require('../models/Data');
 const { auth, authorize } = require('../middleware/auth');
 const upload = require('../middleware/upload');
+const SalesData = require('../models/SalesData');
 
 const router = express.Router();
 
@@ -204,4 +205,191 @@ router.get('/:id/image', async (req, res) => {
   }
 });
 
+// Get all customers for tax information (Admin only)
+router.get('/admin/customers', [auth, authorize('admin')], async (req, res) => {
+  try {
+    const customers = await Data.aggregate([
+      {
+        $group: {
+          _id: '$customerId',
+          customerName: { $first: '$nameAndAddress' },
+          totalCost: { $sum: { $ifNull: ['$totalCost', 0] } },
+          totalFPA: { $sum: { $ifNull: ['$fpa', 0] } },
+          totalGST: { $sum: { $ifNull: ['$gst', 0] } },
+          totalRetailTax: { $sum: { $ifNull: ['$retailTax', 0] } },
+          totalIncomeTax: { $sum: { $ifNull: ['$incomeTax', 0] } },
+          billCount: { $sum: 1 },
+          latestBillDate: { $max: '$createdAt' },
+          bills: { $push: '$$ROOT' }
+        }
+      },
+      {
+        $sort: { customerName: 1 }
+      }
+    ]);
+
+    res.json({
+      message: 'Customers retrieved successfully',
+      data: customers
+    });
+  } catch (error) {
+    console.error('Get customers error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Search customers for tax information (Admin only)
+router.get('/admin/customers/search', [auth, authorize('admin')], async (req, res) => {
+  try {
+    const { query } = req.query;
+
+    if (!query) {
+      return res.status(400).json({ message: 'Search query is required' });
+    }
+
+    const searchRegex = new RegExp(query, 'i');
+    const customers = await Data.aggregate([
+      {
+        $match: {
+          $or: [
+            { customerId: searchRegex },
+            { nameAndAddress: searchRegex }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: '$customerId',
+          customerName: { $first: '$nameAndAddress' },
+          totalCost: { $sum: { $ifNull: ['$totalCost', 0] } },
+          totalFPA: { $sum: { $ifNull: ['$fpa', 0] } },
+          totalGST: { $sum: { $ifNull: ['$gst', 0] } },
+          totalRetailTax: { $sum: { $ifNull: ['$retailTax', 0] } },
+          totalIncomeTax: { $sum: { $ifNull: ['$incomeTax', 0] } },
+          billCount: { $sum: 1 },
+          latestBillDate: { $max: '$createdAt' },
+          bills: { $push: '$$ROOT' }
+        }
+      },
+      {
+        $sort: { customerName: 1 }
+      }
+    ]);
+
+    res.json({
+      message: 'Search completed successfully',
+      data: customers,
+      query
+    });
+  } catch (error) {
+    console.error('Search customers error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get detailed tax information for a specific customer (Admin only)
+router.get('/admin/customers/:customerId/tax-details', [auth, authorize('admin')], async (req, res) => {
+  try {
+    const { customerId } = req.params;
+
+    const customerBills = await Data.find({ customerId })
+      .populate('createdBy', 'username role')
+      .sort({ billMonth: 1, createdAt: -1 }); // Sort by bill month first, then by creation date
+
+    console.log(`Found ${customerBills.length} bills for customer ${customerId}`);
+    console.log('Sample bill data:', customerBills[0]);
+
+    if (customerBills.length === 0) {
+      return res.status(404).json({ message: 'No bills found for this customer' });
+    }
+
+    // Calculate totals from actual database values
+    const totals = customerBills.reduce((acc, bill) => ({
+      totalCost: acc.totalCost + (parseFloat(bill.totalCost) || 0),
+      totalFPA: acc.totalFPA + (parseFloat(bill.fpa) || 0),
+      totalGST: acc.totalGST + (parseFloat(bill.gst) || 0),
+      totalRetailTax: acc.totalRetailTax + (parseFloat(bill.retailTax) || 0),
+      totalIncomeTax: acc.totalIncomeTax + (parseFloat(bill.incomeTax) || 0),
+      billCount: acc.billCount + 1
+    }), {
+      totalCost: 0,
+      totalFPA: 0,
+      totalGST: 0,
+      totalRetailTax: 0,
+      totalIncomeTax: 0,
+      billCount: 0
+    });
+
+    res.json({
+      message: 'Customer tax details retrieved successfully',
+      data: {
+        customerId,
+        customerName: customerBills[0].nameAndAddress,
+        bills: customerBills,
+        totals
+      }
+    });
+  } catch (error) {
+    console.error('Get customer tax details error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
+
+// Compatibility route: salesdata lookup by Serial Number under /api/data
+router.get('/salesdata/lookup', async (req, res) => {
+  try {
+    const { srNo } = req.query;
+    if (!srNo) return res.status(400).json({ message: 'srNo query parameter is required' });
+
+    const srString = String(srNo).trim();
+    const srNumber = Number.isFinite(Number(srString)) ? Number(srString) : null;
+
+    const orConds = [
+      { 'Sr__No': srString },
+      { 'Sr__No.': srString },
+      { 'SR__NO': srString },
+      { 'SrNo': srString },
+      { 'srNo': srString }
+    ];
+    if (srNumber !== null) {
+      orConds.push(
+        { 'Sr__No': srNumber },
+        { 'Sr__No.': srNumber },
+        { 'SR__NO': srNumber },
+        { 'SrNo': srNumber },
+        { 'srNo': srNumber }
+      );
+    }
+
+    const record = await SalesData.findOne({ $or: orConds }).lean();
+
+    if (!record) return res.status(404).json({ message: 'No record found for provided serial number' });
+
+    res.json({ message: 'Record found', data: record });
+  } catch (error) {
+    console.error('Salesdata lookup error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Salesdata lookup by Mongo _id for caretaker form autofill
+router.get('/salesdata/by-id/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'id parameter is required' });
+
+    // Mongoose will throw if invalid; we catch and return 400
+    const record = await SalesData.findById(id).lean();
+    if (!record) return res.status(404).json({ message: 'No record found for provided id' });
+    res.json({ message: 'Record found', data: record });
+  } catch (error) {
+    console.error('Salesdata lookup by id error:', error);
+    // Handle invalid ObjectId format explicitly
+    if (String(error?.name) === 'CastError') {
+      return res.status(400).json({ message: 'Invalid Mongo id format' });
+    }
+    res.status(500).json({ message: 'Server error' });
+  }
+});

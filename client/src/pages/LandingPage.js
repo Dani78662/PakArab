@@ -17,7 +17,9 @@ const LandingPage = () => {
   const roles = [
     { id: 'admin', name: 'Admin', color: 'bg-red-500 hover:bg-red-600', dashboard: '/admin-dashboard' },
     { id: 'ramzin', name: 'Ramzin', color: 'bg-blue-500 hover:bg-blue-600', dashboard: '/ramzin-dashboard' },
-    { id: 'editor', name: 'Editor', color: 'bg-green-500 hover:bg-green-600', dashboard: '/editor-dashboard' }
+    { id: 'editor', name: 'Editor', color: 'bg-green-500 hover:bg-green-600', dashboard: '/editor-dashboard' },
+    { id: 'editor2', name: 'Services', color: 'bg-emerald-500 hover:bg-emerald-600', dashboard: '/service' },
+    { id: 'care_service', name: 'Care Service', color: 'bg-purple-500 hover:bg-purple-600', dashboard: '/care-service-dashboard' }
   ];
 
   const handleRoleClick = (roleId) => {
@@ -70,7 +72,7 @@ const LandingPage = () => {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Welcome to MERN Stack App
+            PAFB Developer Portal
           </h1>
           <p className="text-gray-600">
             Choose your role to continue
@@ -155,6 +157,7 @@ const LandingPage = () => {
           <p>Admin: admin / admin123</p>
           <p>Ramzin: ramzin / ramzin123</p>
           <p>Editor: editor / editor123</p>
+          <p>Services: editor2 / editor2123</p>
         </div>
       </div>
     </div>
