@@ -11,7 +11,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
+  origin: process.env.NODE_ENV === 'development'
     ? ['https://pakarab.onrender.com', 'https://pakarab-1.onrender.com', 'http://localhost:3000']
     : 'http://localhost:3000',
   credentials: true
